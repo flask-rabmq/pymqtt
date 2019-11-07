@@ -80,20 +80,24 @@ class Mqtt(object):
         for topic in self.subscribe_callback:
             self.subscribe_status = False
             self.current_subscribe_topic = topic
-            _, mid = self.mqtt_client.subscribe(topic=topic, qos=self.subscribe_callback[topic].get('qos'))
+            if self.subscribe_callback[topic].get('is_share'):
+                share_topic = '$queue/%s' % topic
+            else:
+                share_topic = None
+            _, mid = self.mqtt_client.subscribe(topic=share_topic or topic, qos=self.subscribe_callback[topic].get('qos'))
             while not self.subscribe_status and self.fist_connect is None:
-                self.mqtt_client.subscribe(topic=topic, qos=self.subscribe_callback[topic].get('qos'))
+                self.mqtt_client.subscribe(topic=share_topic or topic, qos=self.subscribe_callback[topic].get('qos'))
                 time.sleep(0.1)
 
-    def subscribe(self, topic, qos=0):
+    def subscribe(self, topic, qos=0, is_share=True):
         def decorator(f):
-            self.add_subscribe_rule(f, topic, qos)
+            self.add_subscribe_rule(f, topic, qos, is_share=is_share)
             return f
         return decorator
 
     @setup_method
-    def add_subscribe_rule(self, func, topic, qos):
-        self.subscribe_callback[topic] = {'func': func, 'qos': qos}
+    def add_subscribe_rule(self, func, topic, qos, is_share=True):
+        self.subscribe_callback[topic] = {'func': func, 'qos': qos, 'is_share': is_share}
 
     def on_connect(self, client, userdata, flags, rc):
         logger.info('connect success')

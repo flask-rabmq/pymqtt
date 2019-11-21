@@ -134,11 +134,11 @@ class Mqtt(object):
         logger.info('handler result: %s' % result)
 
     def connect(self):
+        if self.mqtt_user and self.mqtt_password:
+            self.mqtt_client.username_pw_set(self.mqtt_user, self.mqtt_password)
         if not self.mqtt_client:
             raise Exception('请初始化')
         self.mqtt_client.connect(self.mqtt_ip, self.mqtt_port, keepalive=2)
-        if self.mqtt_user and self.mqtt_password:
-            self.mqtt_client.username_pw_set(self.mqtt_user, self.mqtt_password)
         # 启动
         self.mqtt_client.loop_start()
         while not self.connect_status:

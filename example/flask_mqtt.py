@@ -26,13 +26,22 @@ fmqtt.config_from_obj(app.config)
 @app.route('/')
 def hello_world():
     content = 'hello world'
+    success = fmqtt.publish('hell world', 'topic', qos=2, retain=True)
     success = fmqtt.publish('hell world', 'topic', qos=2)
     return 'send %s success %s' % (content, success)
 
 
 @fmqtt.subscribe(topic='topic', qos=2)
 def flask_rabmq_test(body):
+    logger.info("only one arg: %s", body)
+    return True
+
+
+@fmqtt.subscribe(topic='topic', qos=2)
+def flask_rabmq_test(body, msg):
+    """如果函数有两个参数，第一个参数是消息的payload, 第二个参数是消息的实例"""
     logger.info(body)
+    logger.info(msg)
     return True
 
 

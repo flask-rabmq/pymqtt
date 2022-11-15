@@ -13,10 +13,10 @@ from paho.mqtt.client import Client
 _ver = sys.version_info
 
 #: Python 2.x?
-is_py2 = (_ver[0] == 2)
+is_py2 = _ver[0] == 2
 
 #: Python 3.x?
-is_py3 = (_ver[0] == 3)
+is_py3 = _ver[0] == 3
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,6 @@ def setup_method(f):
 
 
 class Mqtt(object):
-
     def __del__(self):
         logger.info('stop loop')
         self.mqtt_client.loop_stop()
@@ -84,20 +83,39 @@ class Mqtt(object):
                 share_topic = '$queue/%s' % topic
             else:
                 share_topic = None
-            _, mid = self.mqtt_client.subscribe(topic=share_topic or topic, qos=self.subscribe_callback[topic].get('qos'))
+            _, mid = self.mqtt_client.subscribe(
+                topic=share_topic or topic,
+                qos=self.subscribe_callback[topic].get('qos'),
+                options=self.subscribe_callback[topic].get('options'),
+                properties=self.subscribe_callback[topic].get('properties'),
+            )
             while not self.subscribe_status and self.fist_connect is None:
-                self.mqtt_client.subscribe(topic=share_topic or topic, qos=self.subscribe_callback[topic].get('qos'))
+                self.mqtt_client.subscribe(
+                    topic=share_topic or topic,
+                    qos=self.subscribe_callback[topic].get('qos'),
+                    options=self.subscribe_callback[topic].get('options'),
+                    properties=self.subscribe_callback[topic].get('properties'),
+                )
                 time.sleep(0.1)
 
-    def subscribe(self, topic, qos=0, is_share=True):
+    def subscribe(self, topic, qos=0, is_share=True, options=None, properties=None):
         def decorator(f):
-            self.add_subscribe_rule(f, topic, qos, is_share=is_share)
+            self.add_subscribe_rule(
+                f, topic, qos, is_share=is_share, options=options, properties=properties
+            )
             return f
+
         return decorator
 
     @setup_method
-    def add_subscribe_rule(self, func, topic, qos, is_share=True):
-        self.subscribe_callback[topic] = {'func': func, 'qos': qos, 'is_share': is_share}
+    def add_subscribe_rule(self, func, topic, qos, is_share=True, options=None, properties=None):
+        self.subscribe_callback[topic] = {
+            'func': func,
+            'qos': qos,
+            'is_share': is_share,
+            "options": options,
+            "properties": properties,
+        }
 
     def on_connect(self, client, userdata, flags, rc):
         logger.info('connect success')
@@ -125,7 +143,10 @@ class Mqtt(object):
         func = self.subscribe_callback.get(topic).get('func')
         if func:
             try:
-                result = func(content)
+                if func.__code__.co_argcount == 2:
+                    result = func(content, msg)
+                else:
+                    result = func(content)
             except Exception as E:
                 logger.error(traceback.format_exc())
                 result = None
@@ -151,11 +172,15 @@ class Mqtt(object):
             if self.publish_mid.get(mid, {}).get('expire') < datetime.datetime.now():
                 self.publish_mid.pop(mid, None)
 
-    def publish(self, content, topic, qos=0):
-        _, mid = self.mqtt_client.publish(topic=topic, qos=qos, payload=content)
-        self.publish_mid[mid] = {'status': False, 'expire': datetime.datetime.now() + datetime.timedelta(seconds=5)}
+    def publish(self, content, topic, qos=0, retain=False, properties=None):
+        _, mid = self.mqtt_client.publish(
+            topic=topic, qos=qos, payload=content, retain=retain, properties=properties
+        )
+        self.publish_mid[mid] = {
+            'status': False,
+            'expire': datetime.datetime.now() + datetime.timedelta(seconds=5),
+        }
         while self.publish_mid.get(mid) and self.publish_mid.get(mid)['status'] is False:
             self.clean_publish_mid()
             time.sleep(0.1)
         return mid in self.publish_mid
-

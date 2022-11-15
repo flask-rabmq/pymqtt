@@ -27,11 +27,11 @@ AUTHOR_EMAIL = "cxiaolong6@gmail.com"
 
 URL = 'https://github.com/flask-rabmq/pymqtt'
 
-VERSION = "0.0.7"
+VERSION = "0.0.8"
 
 LICENSE = "MIT"
 
-INSTALL_REQUIRES = ["paho-mqtt>=1.4.0", ]
+INSTALL_REQUIRES = ["paho-mqtt==1.4.0", ]
 
 setup(
     name=NAME,

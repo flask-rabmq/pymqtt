@@ -8,6 +8,7 @@ import datetime
 import importlib
 from functools import update_wrapper
 from paho.mqtt.client import Client
+from distutils.version import LooseVersion
 
 
 # Syntax sugar.
@@ -177,7 +178,6 @@ class Mqtt(object):
         publish_params = {
             "topic": topic, "qos": qos, "payload": content, "retain": retain
         }
-        from distutils.version import LooseVersion
         if LooseVersion(paho.mqtt.__version__) > LooseVersion("1.4.0"):
             publish_params.update(properties=properties)
         logger.info('mqtt send topic: %s content: %s', topic, publish_params)

@@ -31,7 +31,7 @@ VERSION = "0.0.8"
 
 LICENSE = "MIT"
 
-INSTALL_REQUIRES = ["paho-mqtt==1.6.0", ]
+INSTALL_REQUIRES = ["paho-mqtt>=1.4.0", "paho-mqtt<=1.6.1"]
 
 setup(
     name=NAME,

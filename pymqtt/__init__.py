@@ -1,4 +1,5 @@
 # -*- coding:utf8 -*-
+import paho
 import traceback
 import sys
 import time
@@ -173,8 +174,15 @@ class Mqtt(object):
                 self.publish_mid.pop(mid, None)
 
     def publish(self, content, topic, qos=0, retain=False, properties=None):
+        publish_params = {
+            "topic": topic, "qos": qos, "payload": content, "retain": retain
+        }
+        from distutils.version import LooseVersion
+        if LooseVersion(paho.mqtt.__version__) > LooseVersion("1.4.0"):
+            publish_params.update(properties=properties)
+        logger.info('mqtt send topic: %s content: %s', topic, publish_params)
         _, mid = self.mqtt_client.publish(
-            topic=topic, qos=qos, payload=content, retain=retain, properties=properties
+            **publish_params
         )
         self.publish_mid[mid] = {
             'status': False,

@@ -9,6 +9,7 @@ import importlib
 from functools import update_wrapper
 from paho.mqtt.client import Client
 from distutils.version import LooseVersion
+from paho.mqtt.client import topic_matches_sub
 
 
 # Syntax sugar.
@@ -142,7 +143,13 @@ class Mqtt(object):
         logger.info("Received message, topic: %s,payload: %s" % (msg.topic, str(msg.payload)))
         topic = msg.topic
         content = msg.payload
-        func = self.subscribe_callback.get(topic).get('func')
+        for _topic in self.subscribe_callback.keys():
+            if topic_matches_sub(_topic, topic):
+                func = self.subscribe_callback.get(_topic, {}).get('func')
+                break
+        else:
+            func = None
+
         if func:
             try:
                 if func.__code__.co_argcount == 2:

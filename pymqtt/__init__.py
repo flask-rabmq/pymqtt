@@ -167,11 +167,14 @@ class Mqtt(object):
         if self.mqtt_user and self.mqtt_password:
             self.mqtt_client.username_pw_set(self.mqtt_user, self.mqtt_password)
         if not self.mqtt_client:
-            raise Exception('请初始化')
-        self.mqtt_client.connect(self.mqtt_ip, self.mqtt_port, keepalive=2)
-        # 启动
-        self.mqtt_client.loop_start()
+            raise Exception('please init mqtt client')
+        i = 0
         while not self.connect_status:
+            # 1s/connect
+            if i % 10 == 0:
+                self.mqtt_client.connect(self.mqtt_ip, self.mqtt_port, keepalive=2)
+                self.mqtt_client.loop_start()
+            i += 1
             logger.info('mqtt(%s:%s) connecting' % (self.mqtt_ip, self.mqtt_port))
             time.sleep(0.1)
 

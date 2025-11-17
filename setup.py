@@ -27,7 +27,7 @@ AUTHOR_EMAIL = "cxiaolong6@gmail.com"
 
 URL = 'https://github.com/flask-rabmq/pymqtt'
 
-VERSION = "0.0.14"
+VERSION = "0.0.15"
 
 LICENSE = "MIT"
 

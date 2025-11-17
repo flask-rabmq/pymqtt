@@ -38,6 +38,7 @@ class Mqtt(object):
         self.mqtt_client.disconnect()
 
     def __init__(self, ip=None, port=None, user=None, password=None, client_id=None):
+        self.last_connect_time = None
         self.mqtt_ip = ip
         self.mqtt_port = port
         self.mqtt_user = user
@@ -51,7 +52,7 @@ class Mqtt(object):
         self.current_subscribe_topic = None
         self.fist_connect = None
 
-    def run(self):
+    def run(self, only_publish=False):
         self.mqtt_ip = self.mqtt_ip or self.config.get('MQTT_IP') or '127.0.0.1'
         self.mqtt_port = self.mqtt_port or self.config.get('MQTT_PORT') or 1883
         self.mqtt_user = self.mqtt_user or self.config.get('MQTT_USER')
@@ -63,8 +64,16 @@ class Mqtt(object):
         self.mqtt_client.on_disconnect = self.on_disconnect
         self.mqtt_client.on_subscribe = self.on_subscribe
         self.mqtt_client.on_message = self.on_message
-        self.connect()
-        self.start_subscribe()
+        self.last_connect_time = int(time.time())
+        if not only_publish:
+            self.connect()
+            self.start_subscribe()
+        else:
+            # 如果只是为了发送消息，启动时连接失败，将在发送时补偿
+            try:
+                self.connect()
+            except Exception as e:
+                logger.error("only publish connect error: %s, publish reconnect", traceback.format_exc())
 
     def config_from_obj(self, obj):
         if is_py3 and isinstance(obj, str):
@@ -184,21 +193,32 @@ class Mqtt(object):
             if self.publish_mid.get(mid, {}).get('expire') < datetime.datetime.now():
                 self.publish_mid.pop(mid, None)
 
-    def publish(self, content, topic, qos=0, retain=False, properties=None):
-        publish_params = {
-            "topic": topic, "qos": qos, "payload": content, "retain": retain
-        }
-        if LooseVersion(paho.mqtt.__version__) > LooseVersion("1.4.0"):
-            publish_params.update(properties=properties)
-        logger.info('mqtt send topic: %s content: %s', topic, publish_params)
-        _, mid = self.mqtt_client.publish(
-            **publish_params
-        )
-        self.publish_mid[mid] = {
-            'status': False,
-            'expire': datetime.datetime.now() + datetime.timedelta(seconds=5),
-        }
-        while self.publish_mid.get(mid) and self.publish_mid.get(mid)['status'] is False:
-            self.clean_publish_mid()
-            time.sleep(0.1)
-        return mid in self.publish_mid
+    def publish(self, content, topic, qos=0, retain=False, properties=None, timeout=5):
+        try:
+            # 连接丢失，并且距离上次连接已经超过了5s
+            if not self.connect_status and int(time.time()) > self.last_connect_time + 5:
+                self.last_connect_time = int(time.time())
+                self.connect()
+            elif not self.connect_status:
+                logger.warning('send error: not connect. mqtt send topic: %s content: %s', topic, content)
+                return False
+            publish_params = {
+                "topic": topic, "qos": qos, "payload": content, "retain": retain
+            }
+            if LooseVersion(paho.mqtt.__version__) > LooseVersion("1.4.0"):
+                publish_params.update(properties=properties)
+            logger.info('mqtt send topic: %s content: %s', topic, publish_params)
+            _, mid = self.mqtt_client.publish(
+                **publish_params
+            )
+            self.publish_mid[mid] = {
+                'status': False,
+                'expire': datetime.datetime.now() + datetime.timedelta(seconds=timeout),
+            }
+            while self.publish_mid.get(mid) and self.publish_mid.get(mid)['status'] is False:
+                self.clean_publish_mid()
+                time.sleep(0.1)
+            return mid in self.publish_mid
+        except Exception as e:
+            logger.warning("mqtt publish exception: %s", str(e))
+            return False
